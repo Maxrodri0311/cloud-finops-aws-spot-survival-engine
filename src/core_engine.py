@@ -18,11 +18,21 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from src.domain.contracts import AnalyticalStorageProtocol
+from src.domain.entities import RuntimeContext, CheckpointPolicyDecision
 from src.domain.survival_models import (
     KaplanMeierEstimator,
     LogRankResult,
     log_rank_test,
 )
+from src.domain.cox_model import CoxProportionalHazardsModel
+from src.domain.cost_model import AWSFinOpsCostModel
+from src.domain.checkpoint_policy import (
+    CheckpointPolicyProtocol,
+    DynamicSurvivalCheckpointPolicy,
+    FixedIntervalCheckpointPolicy,
+    PolicySimulator,
+)
+from src.marts.dimensional_marts import KimballLakehouseMarts
 from src.adapters.duckdb_adapter import DuckDBAnalyticalAdapter
 
 
@@ -39,6 +49,7 @@ class SpotAnalyticsEngine:
     ):
         self.storage = storage
         self.lake_path = lake_path
+        self.marts = KimballLakehouseMarts(storage=self.storage, lake_path=self.lake_path)
 
     def compute_fleet_summary(self) -> pd.DataFrame:
         """
@@ -172,6 +183,137 @@ class SpotAnalyticsEngine:
 
         return pd.DataFrame(rows)
 
+    def train_cox_model(
+        self,
+        feature_cols: Optional[List[str]] = None,
+        penalizer: float = 0.01,
+        sample_limit: int = 25000,
+    ) -> CoxProportionalHazardsModel:
+        """
+        Loads training exposure data from the data lake and fits a regularized
+        multivariate Cox Proportional Hazards model with Breslow baseline hazard.
+        """
+        if feature_cols is None:
+            feature_cols = [
+                "price_drift_15m",
+                "price_spread_ratio",
+                "cpu_utilization",
+                "gpu_utilization",
+                "cluster_size",
+            ]
+
+        cols_select = ", ".join(["duration_seconds", "event_observed"] + feature_cols)
+        parquet_glob = os.path.join(self.lake_path, "**", "*.parquet")
+        query = f"""
+            SELECT {cols_select}
+            FROM read_parquet('{parquet_glob}', hive_partitioning = true)
+            LIMIT {sample_limit};
+        """
+        df = self.storage.execute_query(query)
+        if len(df) == 0:
+            raise ValueError(f"No exposure data found in lake: {self.lake_path}")
+
+        model = CoxProportionalHazardsModel(penalizer=penalizer)
+        model.fit(
+            df=df,
+            duration_col="duration_seconds",
+            event_col="event_observed",
+            feature_cols=feature_cols,
+        )
+        return model
+
+    def evaluate_live_decision(
+        self,
+        context: RuntimeContext,
+        policy: Optional[CheckpointPolicyProtocol] = None,
+        trained_model: Optional[CoxProportionalHazardsModel] = None,
+    ) -> CheckpointPolicyDecision:
+        """
+        Evaluates a real-time checkpointing decision for an active Spot task.
+        If no policy is passed, builds a DynamicSurvivalCheckpointPolicy
+        using the provided trained_model (or fits a fresh Cox PH model)
+        and an AWSFinOpsCostModel.
+        """
+        if policy is None:
+            if trained_model is None:
+                trained_model = self.train_cox_model(sample_limit=10000)
+            cost_model = AWSFinOpsCostModel()
+            policy = DynamicSurvivalCheckpointPolicy(
+                hazard_estimator=trained_model,
+                cost_model=cost_model,
+            )
+        return policy.evaluate(context)
+
+    def simulate_policy_benchmark(
+        self,
+        sample_size: int = 1000,
+        trained_model: Optional[CoxProportionalHazardsModel] = None,
+    ) -> pd.DataFrame:
+        """
+        Runs Monte Carlo evaluation benchmark across actual spot workloads comparing:
+        1. On-Demand Pure Baseline
+        2. Fixed-Interval Policy (15m periodic)
+        3. Dynamic Survival Causal Policy (Ours)
+        """
+        parquet_glob = os.path.join(self.lake_path, "**", "*.parquet")
+        query = f"""
+            SELECT 
+                duration_seconds,
+                event_observed,
+                spot_price_usd_per_hour,
+                ondemand_price_usd_per_hour,
+                rebalance_recommended,
+                instance_type,
+                price_drift_15m,
+                price_spread_ratio,
+                cpu_utilization,
+                gpu_utilization,
+                cluster_size
+            FROM read_parquet('{parquet_glob}', hive_partitioning = true)
+            LIMIT {sample_size};
+        """
+        df = self.storage.execute_query(query)
+        if len(df) == 0:
+            raise ValueError("No workloads available for policy benchmark simulation.")
+
+        if trained_model is None:
+            trained_model = CoxProportionalHazardsModel(penalizer=0.01)
+            trained_model.fit(df)
+
+        cost_model = AWSFinOpsCostModel()
+        dynamic_policy = DynamicSurvivalCheckpointPolicy(
+            hazard_estimator=trained_model,
+            cost_model=cost_model,
+        )
+        fixed_policy = FixedIntervalCheckpointPolicy(interval_seconds=900.0)
+
+        workloads = df.to_dict(orient="records")
+        return PolicySimulator.simulate_fleet(
+            workloads=workloads,
+            dynamic_policy=dynamic_policy,
+            fixed_policy=fixed_policy,
+        )
+
+    def build_marts(self) -> None:
+        """Constructs Kimball Star-Schema dimensional views."""
+        self.marts.build_dimensions_and_facts()
+
+    def query_finops_executive_mart(self) -> pd.DataFrame:
+        """Queries C-level executive FinOps mart."""
+        return self.marts.query_finops_executive_mart()
+
+    def query_pool_hazard_mart(self) -> pd.DataFrame:
+        """Queries granular hazard breakdown by instance pool."""
+        return self.marts.query_pool_hazard_mart()
+
+    def query_signal_efficiency_mart(self) -> pd.DataFrame:
+        """Queries AWS early warning signal efficiency mart."""
+        return self.marts.query_signal_efficiency_mart()
+
+    def export_dimensional_marts(self, output_dir: str = "data/marts") -> Dict[str, str]:
+        """Materializes Star Schema dimensional models into Parquet files."""
+        return self.marts.export_marts_to_parquet(output_dir=output_dir)
+
 
 def create_engine(lake_path: str = "data/spot_events") -> SpotAnalyticsEngine:
     """Composition Root: Injects DuckDB adapter into domain engine."""
@@ -208,4 +350,31 @@ if __name__ == "__main__":
     print(f"  Group 2 ({lr_res.group2_name}): Observed={lr_res.observed_events_2}, Expected={lr_res.expected_events_2}")
     print(f"  Chi-Square Statistic: {lr_res.chi2_statistic:.4f} | p-value: {lr_res.p_value:.6e}")
     print(f"  Statistically Significant Difference (p < 0.05): {lr_res.is_significant}")
+
+    print("\n" + "="*85)
+    print("  MULTIVARIATE COX PROPORTIONAL HAZARDS MODEL (Regularized Partial Likelihood)")
+    print("="*85)
+    cox = engine.train_cox_model(sample_limit=10000)
+    print(f"  Concordance Index (C-Index): {cox.concordance_index_:.4f}")
+    print("\n  Covariate Hazard Ratios (HR = exp(beta)):")
+    print(cox.summary_table().to_string())
+
+    print("\n" + "="*85)
+    print("  DYNAMIC CHECKPOINT POLICY BENCHMARK (Monte Carlo Fleet Simulation)")
+    print("="*85)
+    bench_df = engine.simulate_policy_benchmark(sample_size=1000, trained_model=cox)
+    print(bench_df.to_string(index=False))
+
+    print("\n" + "="*85)
+    print("  KIMBALL STAR-SCHEMA DATA MARTS: FINOPS EXECUTIVE MART")
+    print("="*85)
+    engine.build_marts()
+    finops_mart = engine.query_finops_executive_mart()
+    print(finops_mart.to_string(index=False))
+
+    print("\n" + "="*85)
+    print("  KIMBALL STAR-SCHEMA DATA MARTS: AWS EARLY WARNING EFFICIENCY")
+    print("="*85)
+    signals_mart = engine.query_signal_efficiency_mart()
+    print(signals_mart.to_string(index=False))
     print("="*85 + "\n")
