@@ -1,18 +1,18 @@
-# 📐 ARCHITECTURE SPEC & BLUEPRINT: Coderio AWS Spot Lifecycle & Pipeline Survival Engine (GP-101)
+# 📐 ARCHITECTURE SPEC & BLUEPRINT: Cloud Architecture & FinOps Practice AWS Spot Lifecycle & Pipeline Survival Engine (GP-101)
 
-**Target Company:** Coderio (Technology Consulting & Cloud Architecture)  
+**Target Company:** Cloud Architecture & FinOps Practice (Technology Consulting & Cloud Architecture)  
 **Target Role:** Data Scientist AWS / Principal Reliability Architect  
 **Perspective:** Causal & Survival Lifecycle Analytics (`CAUSAL_SURVIVAL`)  
 **Core Algorithms:** Kaplan-Meier Product-Limit Estimator, Greenwood Log-Log Confidence Bands, Log-Rank Hypothesis Testing, Regularized Cox Proportional Hazards with Time-Varying Covariates.  
 **Delivery Paradigm:** `EXPLAINABLE_ANALYTICS` (Dual Delivery: Rich CLI TUI + Dimensional Data Marts & FinOps Suite)  
-**Repository Name:** `coderio-aws-spot-lifecycle-survival-engine`  
+**Repository Name:** `cloud-finops-aws-spot-survival-engine`  
 **Author:** Maximiliano Rodriguez (<maxrodri0311@gmail.com>)
 
 ---
 
 ## 🏛️ 1. The Core Business Bottleneck & Economic Physics
 
-Clients of **Coderio** run massive distributed training on **Amazon SageMaker** and big data analytics pipelines on **Amazon EMR (Spark)**, **AWS Glue**, and **AWS Step Functions**. 
+Clients of **Cloud Architecture & FinOps Practice** run massive distributed training on **Amazon SageMaker** and big data analytics pipelines on **Amazon EMR (Spark)**, **AWS Glue**, and **AWS Step Functions**. 
 
 - **The Trade-Off:** On-Demand compute instances guarantee zero unplanned terminations but cost up to 4x more. Amazon EC2 Spot instances offer up to **70-90% cost discounts** against On-Demand pricing, but are subject to stochastic reclaiming (evictions) when AWS capacity demand shifts.
 - **The Failure Cost:** AWS delivers an `EC2 Spot Interruption Notice` approximately **2 minutes (120 seconds)** before termination, and occasionally an earlier `EC2 Instance Rebalance Recommendation`. Unscheduled evictions on long-running pipelines cause **sunk compute losses, distributed synchronization barrier collapse, lost shuffle partitions, and SLA breach penalties** averaging **$240,000 USD/year** per enterprise tenant.

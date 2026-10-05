@@ -1,5 +1,5 @@
 """
-tests/test_suite.py - Master Integration Test Suite for Coderio AWS Spot Survival Engine.
+tests/test_suite.py - Master Integration Test Suite for Cloud Architecture & FinOps Practice AWS Spot Survival Engine.
 Verifies end-to-end data pipeline, DIP abstractions, and analytical query execution.
 """
 

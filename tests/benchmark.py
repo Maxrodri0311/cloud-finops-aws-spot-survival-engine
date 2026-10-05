@@ -92,7 +92,7 @@ def run_benchmarks(iterations=30, num_records=10000):
         dec_p99 = float(np.percentile(decision_latencies, 99))
 
         print("\n" + "="*65)
-        print("  CODERIO AWS SPOT SURVIVAL ENGINE - QUANTITATIVE BENCHMARKS")
+        print("  Cloud Architecture & FinOps Practice AWS SPOT SURVIVAL ENGINE - QUANTITATIVE BENCHMARKS")
         print("="*65)
         print(f"  Dataset Size: {num_records:,} spot task exposures")
         print(f"  Iterations:   {iterations}")

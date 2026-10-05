@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 
 echo ================================================================================
-echo   CODERIO AWS SPOT LIFECYCLE ^& PIPELINE SURVIVAL ENGINE [GP-101]
+echo   Cloud Architecture & FinOps Practice AWS SPOT LIFECYCLE ^& PIPELINE SURVIVAL ENGINE [GP-101]
 echo   Reproducible Local-First Execution, FinOps Analytics ^& Decision Platform
 echo ================================================================================
 echo.

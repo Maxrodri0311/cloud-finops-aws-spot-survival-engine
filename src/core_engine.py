@@ -1,5 +1,5 @@
 """
-src/core_engine.py - Core Analytical & Survival Engine for Coderio AWS Spot Lifecycle.
+src/core_engine.py - Core Analytical & Survival Engine for Cloud Architecture & FinOps Practice AWS Spot Lifecycle.
 Implements dependency injection (DIP) over AnalyticalStorageProtocol,
 orchestrating vectorized analytics on Hive-partitioned Parquet data lakes
 and non-parametric survival analysis (Kaplan-Meier, Greenwood, Log-Rank).
@@ -331,7 +331,7 @@ if __name__ == "__main__":
 
     engine = create_engine(lake_path=data_dir)
     print("\n" + "="*85)
-    print("  CODERIO AWS SPOT LIFECYCLE - FLEET SUMMARY & FINANCIALS")
+    print("  Cloud Architecture & FinOps Practice AWS SPOT LIFECYCLE - FLEET SUMMARY & FINANCIALS")
     print("="*85)
     summary = engine.compute_fleet_summary()
     print(summary.to_string(index=False))

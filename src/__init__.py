@@ -1,5 +1,5 @@
 """
-Coderio AWS Spot Lifecycle & Pipeline Survival Engine (GP-101)
+Cloud Architecture & FinOps Practice AWS Spot Lifecycle & Pipeline Survival Engine (GP-101)
 Package root.
 """
 

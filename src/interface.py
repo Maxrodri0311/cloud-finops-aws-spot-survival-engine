@@ -40,7 +40,7 @@ console = Console(highlight=False, legacy_windows=False)
 def print_banner() -> None:
     """Renders the executive branding header."""
     banner_text = Text()
-    banner_text.append(" CODERIO AWS SPOT LIFECYCLE & PIPELINE SURVIVAL ENGINE\n", style="bold cyan")
+    banner_text.append(" Cloud Architecture & FinOps Practice AWS SPOT LIFECYCLE & PIPELINE SURVIVAL ENGINE\n", style="bold cyan")
     banner_text.append(" [GP-101] Stochastic Eviction Hazard Modeling & Causal Checkpointing\n", style="bold white")
     banner_text.append(" Author: Maximiliano Rodriguez | Role: Data Scientist AWS | Stack: AWS, DuckDB, Lifelines, Parquet", style="italic yellow")
     
@@ -379,7 +379,7 @@ def interactive_menu(lake_path: str = "data/spot_events") -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Coderio AWS Spot Lifecycle Survival Engine CLI")
+    parser = argparse.ArgumentParser(description="Cloud Architecture & FinOps Practice AWS Spot Lifecycle Survival Engine CLI")
     parser.add_argument("--demo", action="store_true", help="Run full automated tour headlessly")
     parser.add_argument("--lake-path", type=str, default="data/spot_events", help="Path to Hive-partitioned Parquet lake")
     args = parser.parse_args()

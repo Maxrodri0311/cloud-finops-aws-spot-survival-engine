@@ -25,10 +25,10 @@ def partitioned_lake(tmp_path_factory):
 
 def test_duckdb_basic_query():
     adapter = DuckDBAnalyticalAdapter()
-    df = adapter.execute_query("SELECT 42 as answer, 'Coderio' as tenant;")
+    df = adapter.execute_query("SELECT 42 as answer, 'CloudFinOps' as tenant;")
     assert len(df) == 1
     assert df.iloc[0]["answer"] == 42
-    assert df.iloc[0]["tenant"] == "Coderio"
+    assert df.iloc[0]["tenant"] == "CloudFinOps"
 
 
 def test_duckdb_scan_parquet_with_predicate_pushdown(partitioned_lake):
